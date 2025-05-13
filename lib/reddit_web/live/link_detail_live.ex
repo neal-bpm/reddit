@@ -7,20 +7,29 @@ defmodule RedditWeb.LinkDetailLive do
 
   @impl true
   def mount(%{"id" => id}, _session, socket) do
-    link = Content.get_link_with_comments!(id)
+    # Use try/rescue to handle the case when the link is not found
+    try do
+      link = Content.get_link_with_comments!(id)
 
-    if connected?(socket) do
-      Phoenix.PubSub.subscribe(Reddit.PubSub, "comments:#{id}:new")
+      if connected?(socket) do
+        Phoenix.PubSub.subscribe(Reddit.PubSub, "comments:#{id}:new")
+      end
+
+      {:ok,
+       socket
+       |> assign(:page_title, link.title)
+       |> assign(:link, link)
+       |> assign(:comments, link.comments)
+       |> assign(:comment_changeset, Content.change_comment(%Comment{}))
+       |> assign(:username, "")
+       |> assign(:parent_comment_id, nil)}
+    rescue
+      Ecto.NoResultsError ->
+        {:ok,
+         socket
+         |> put_flash(:error, "Link not found")
+         |> redirect(to: ~p"/")}
     end
-
-    {:ok,
-     socket
-     |> assign(:page_title, link.title)
-     |> assign(:link, link)
-     |> assign(:comments, link.comments)
-     |> assign(:comment_changeset, Content.change_comment(%Comment{}))
-     |> assign(:username, "")
-     |> assign(:parent_comment_id, nil)}
   end
 
   @impl true
@@ -122,7 +131,7 @@ defmodule RedditWeb.LinkDetailLive do
               {@link.title}
             </h1>
           </div>
-          
+
     <!-- URL with happy styling -->
           <div class="mb-4" style="font-family: var(--font-text);">
             <a
@@ -134,7 +143,7 @@ defmodule RedditWeb.LinkDetailLive do
               {@link.url}
             </a>
           </div>
-          
+
     <!-- Link body with bright styling -->
           <%= if @link.body do %>
             <div style="border-radius: 10px; border: 2px solid rgba(255,105,180,0.2); padding: 15px; margin-top: 12px; background-color: rgba(255,240,252,0.5);">
@@ -143,7 +152,7 @@ defmodule RedditWeb.LinkDetailLive do
               </div>
             </div>
           <% end %>
-          
+
     <!-- Link metadata with colorful styling -->
           <div class="mt-4" style="font-family: var(--font-text); font-size: 0.9rem;">
             <div class="flex justify-between items-center">
@@ -155,13 +164,13 @@ defmodule RedditWeb.LinkDetailLive do
           </div>
         </div>
       </div>
-      
+
     <!-- Comments section -->
       <div class="mb-6">
         <h2 style="font-family: var(--font-display); font-size: 1.8rem; background: linear-gradient(to right, var(--color-bright-purple), var(--color-bright-blue)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 1rem">
           Comments
         </h2>
-        
+
     <!-- Comment form with colorful styling -->
         <div style="border-radius: 12px; background-color: white; padding: 20px; margin-bottom: 20px; box-shadow: 0 3px 15px rgba(137,207,240,0.15); border: 1px solid rgba(191,95,255,0.2);">
           <h3 style="font-family: var(--font-heading); color: var(--color-bright-purple); margin-bottom: 12px; font-weight: 600; font-size: 1.2rem;">
@@ -210,7 +219,7 @@ defmodule RedditWeb.LinkDetailLive do
             </.button>
           </.form>
         </div>
-        
+
     <!-- Comments list with colorful styling -->
         <div class="comments-container space-y-4">
           <%= if Enum.empty?(@comments) do %>
@@ -261,7 +270,7 @@ defmodule RedditWeb.LinkDetailLive do
           <% end %>
         </div>
       </div>
-      
+
     <!-- Footer stats -->
       <div
         class="text-center mt-5 py-2"
