@@ -7,7 +7,7 @@ defmodule Reddit.Content do
   import Ecto.Query, warn: false
   alias Reddit.Repo
   alias Reddit.Content.{Topic, Link, Comment}
-  alias Reddit.Accounts
+  # alias Reddit.Accounts
 
   # Topic-related functions
 
@@ -212,10 +212,11 @@ defmodule Reddit.Content do
     per_page = Keyword.get(opts, :per_page, 20)
     preload = Keyword.get(opts, :preload_associations, false)
 
-    query = from l in Link,
-      order_by: [desc: l.posted_at],
-      limit: ^per_page,
-      offset: ^((page - 1) * per_page)
+    query =
+      from l in Link,
+        order_by: [desc: l.posted_at],
+        limit: ^per_page,
+        offset: ^((page - 1) * per_page)
 
     links = Repo.all(query)
 
@@ -246,12 +247,14 @@ defmodule Reddit.Content do
     per_page = Keyword.get(opts, :per_page, 20)
     preload = Keyword.get(opts, :preload_associations, false)
 
-    query = from l in Link,
-      join: t in Topic, on: l.topic_id == t.id,
-      where: t.slug == ^topic_slug,
-      order_by: [desc: l.posted_at],
-      limit: ^per_page,
-      offset: ^((page - 1) * per_page)
+    query =
+      from l in Link,
+        join: t in Topic,
+        on: l.topic_id == t.id,
+        where: t.slug == ^topic_slug,
+        order_by: [desc: l.posted_at],
+        limit: ^per_page,
+        offset: ^((page - 1) * per_page)
 
     links = Repo.all(query)
 
@@ -284,10 +287,11 @@ defmodule Reddit.Content do
   end
 
   defp process_link_for_display(link) do
-    %{link |
-      comment_count: length(link.comments),
-      user: Map.take(link.user, [:id, :username]),
-      topic: Map.take(link.topic, [:id, :name, :slug])
+    %{
+      link
+      | comment_count: length(link.comments),
+        user: Map.take(link.user, [:id, :username]),
+        topic: Map.take(link.topic, [:id, :name, :slug])
     }
     |> Map.drop([:comments])
   end
@@ -387,7 +391,8 @@ defmodule Reddit.Content do
         # Cache miss
         links =
           list_links(preload_associations: true)
-          |> Enum.take(25)  # Take top 25 for homepage
+          # Take top 25 for homepage
+          |> Enum.take(25)
 
         # Store in cache
         Reddit.Cache.put_homepage_links(links)

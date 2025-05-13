@@ -33,10 +33,13 @@ defmodule Reddit.Content.Link do
       case uri do
         %URI{scheme: nil} ->
           [{field, "URL must include a scheme (e.g., http://, https://)"}]
+
         %URI{host: nil} ->
           [{field, "URL must include a host"}]
+
         %URI{scheme: scheme} when scheme not in ["http", "https"] ->
           [{field, "URL scheme must be http or https"}]
+
         _ ->
           []
       end
