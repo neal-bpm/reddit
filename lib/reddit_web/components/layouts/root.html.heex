@@ -4,14 +4,122 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="csrf-token" content={get_csrf_token()} />
-    <.live_title default="Reddit" suffix=" · Phoenix Framework">
+    <.live_title default="Reddit" suffix=" · 90s Rainbow">
       {assigns[:page_title]}
     </.live_title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Bubblegum+Sans&family=Comic+Neue:wght@400;700&family=Fredoka:wght@300;400;600&display=swap"
+      rel="stylesheet"
+    />
     <link phx-track-static rel="stylesheet" href={~p"/assets/app.css"} />
     <script defer phx-track-static type="text/javascript" src={~p"/assets/app.js"}>
     </script>
+    <style>
+      :root {
+        /* Lisa Frank-inspired color palette */
+        --color-hot-pink: #FF69B4;
+        --color-bright-pink: #fd5da8;
+        --color-baby-blue: #89CFF0;
+        --color-bright-blue: #1EAEDB;
+        --color-bright-purple: #bf5fff;
+        --color-neon-orange: #FF9933;
+        --color-lime-green: #32CD32;
+        --color-yellow: #FFDF00;
+        --color-teal: #40E0D0;
+        --color-light-purple: #d8b3ff;
+        --color-background: #FFFFFF;
+        --color-text: #333333;
+        --color-border: #FFBBEE;
+        --color-hover: #FF007F;
+        --font-display: 'Bubblegum Sans', cursive;
+        --font-heading: 'Fredoka', sans-serif;
+        --font-text: 'Comic Neue', sans-serif;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        background-color: var(--color-background);
+        color: var(--color-text);
+      }
+
+      /* Fun scrollbar */
+      ::-webkit-scrollbar {
+        width: 10px;
+        height: 10px;
+      }
+      ::-webkit-scrollbar-track {
+        background: #fef4ff;
+        border-radius: 10px;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: linear-gradient(180deg, var(--color-hot-pink), var(--color-baby-blue));
+        border-radius: 10px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: linear-gradient(180deg, var(--color-bright-pink), var(--color-bright-blue));
+      }
+
+      /* Fun background elements */
+      .sparkle {
+        position: absolute;
+        width: 10px;
+        height: 10px;
+        pointer-events: none;
+        background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%23FF69B4"><path d="M12 0L14.59 9.41 24 12 14.59 14.59 12 24 9.41 14.59 0 12 9.41 9.41z"/></svg>');
+        background-size: contain;
+        background-repeat: no-repeat;
+        opacity: 0.15;
+      }
+
+      /* Rainbow gradient background effect */
+      .rainbow-bg {
+        position: relative;
+        z-index: 1;
+      }
+
+      .rainbow-bg::before {
+        content: '';
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, rgba(255,105,180,0.07), rgba(137,207,240,0.07), rgba(255,223,0,0.07));
+        background-size: 200% 200%;
+        animation: gradientBG 15s ease infinite;
+        z-index: -1;
+      }
+
+      @keyframes gradientBG {
+        0% {background-position: 0% 50%}
+        50% {background-position: 100% 50%}
+        100% {background-position: 0% 50%}
+      }
+    </style>
   </head>
-  <body class="bg-white">
-    {@inner_content}
+  <body class="rainbow-bg">
+    <div
+      class="stars-container"
+      style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none;"
+    >
+      <div class="sparkle" style="top: 10%; left: 5%;"></div>
+      <div class="sparkle" style="top: 20%; left: 15%;"></div>
+      <div class="sparkle" style="top: 35%; left: 25%;"></div>
+      <div class="sparkle" style="top: 15%; left: 45%;"></div>
+      <div class="sparkle" style="top: 25%; left: 75%;"></div>
+      <div class="sparkle" style="top: 45%; left: 85%;"></div>
+      <div class="sparkle" style="top: 65%; left: 5%;"></div>
+      <div class="sparkle" style="top: 75%; left: 35%;"></div>
+      <div class="sparkle" style="top: 85%; left: 65%;"></div>
+      <div class="sparkle" style="top: 95%; left: 95%;"></div>
+    </div>
+    <div class="content-wrapper" style="position: relative; z-index: 2;">
+      {@inner_content}
+    </div>
   </body>
 </html>

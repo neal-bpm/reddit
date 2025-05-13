@@ -27,6 +27,7 @@ defmodule Reddit.Content.Topic do
       _slug -> changeset
     end
   end
+
   defp maybe_generate_slug(changeset), do: changeset
 
   # Simple slug generation function (converts to lowercase and replaces spaces with dashes)

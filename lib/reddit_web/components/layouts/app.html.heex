@@ -1,23 +1,38 @@
-<header class="px-4 sm:px-6 lg:px-8">
-  <div class="flex items-center justify-between border-b border-zinc-100 py-3 text-sm">
+<header
+  class="px-4 sm:px-6 lg:px-8 py-3"
+  style="border-bottom: 3px solid; border-image: linear-gradient(to right, var(--color-hot-pink), var(--color-baby-blue), var(--color-bright-purple)) 1; background-color: rgba(255,255,255,0.9);"
+>
+  <div class="flex items-center justify-between py-2">
     <div class="flex items-center gap-4">
-      <a href="/">
-        <img src={~p"/images/logo.svg"} width="36" />
+      <a href="/" class="inline-block relative">
+        <div
+          class="logo-text"
+          style="font-family: var(--font-display); font-size: 1.8rem; background: linear-gradient(to right, var(--color-hot-pink), var(--color-bright-purple)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; text-shadow: 1px 1px 2px rgba(255,105,180,0.3);"
+        >
+          Rainbow Reddit
+        </div>
       </a>
-      <a href="/" class="font-semibold text-lg">Reddit Clone</a>
     </div>
-    <div class="flex items-center gap-4 font-semibold leading-6 text-zinc-900">
-      <a href={~p"/links/new"} class="hover:text-zinc-700">
-        Submit Link
+    <div class="flex items-center gap-3">
+      <a
+        href={~p"/links/new"}
+        class="px-4 py-2 rounded-full hover:scale-105 transition-transform"
+        style="background: linear-gradient(to right, var(--color-hot-pink), var(--color-bright-pink)); color: white; font-family: var(--font-heading); font-weight: 600; box-shadow: 0 3px 10px rgba(253,93,168,0.3);"
+      >
+        New Link ✨
       </a>
-      <a href={~p"/topics"} class="hover:text-zinc-700">
-        Topics
+      <a
+        href={~p"/topics"}
+        class="px-4 py-2 rounded-full hover:scale-105 transition-transform"
+        style="background: linear-gradient(to right, var(--color-baby-blue), var(--color-bright-blue)); color: white; font-family: var(--font-heading); font-weight: 600; box-shadow: 0 3px 10px rgba(137,207,240,0.3);"
+      >
+        Topics 🌈
       </a>
     </div>
   </div>
 </header>
-<main class="px-4 py-10 sm:px-6 lg:px-8">
-  <div class="mx-auto max-w-4xl">
+<main class="px-3 py-6 sm:px-6 lg:px-8">
+  <div class="container mx-auto max-w-6xl">
     <.flash_group flash={@flash} />
     {@inner_content}
   </div>

@@ -19,8 +19,16 @@ Repo.delete_all(Topic)
 
 # Create initial topics
 topics = [
-  %{name: "Elixir", slug: "elixir", description: "Discussions about the Elixir programming language"},
-  %{name: "Phoenix", slug: "phoenix", description: "Everything related to the Phoenix web framework"},
+  %{
+    name: "Elixir",
+    slug: "elixir",
+    description: "Discussions about the Elixir programming language"
+  },
+  %{
+    name: "Phoenix",
+    slug: "phoenix",
+    description: "Everything related to the Phoenix web framework"
+  },
   %{name: "Technology", slug: "technology", description: "General technology discussions"},
   %{name: "Science", slug: "science", description: "Scientific news and discussions"},
   %{name: "Gaming", slug: "gaming", description: "Video games, board games, and more"},
@@ -28,7 +36,11 @@ topics = [
   %{name: "Books", slug: "books", description: "Book recommendations and literary discussions"},
   %{name: "Music", slug: "music", description: "Music discussions, recommendations, and news"},
   %{name: "Sports", slug: "sports", description: "Sports news and discussions"},
-  %{name: "Cooking", slug: "cooking", description: "Recipes, cooking techniques, and food discussions"}
+  %{
+    name: "Cooking",
+    slug: "cooking",
+    description: "Recipes, cooking techniques, and food discussions"
+  }
 ]
 
 for topic_attrs <- topics do
