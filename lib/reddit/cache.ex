@@ -6,7 +6,8 @@ defmodule Reddit.Cache do
   use GenServer
 
   @table_name :reddit_cache
-  @default_ttl :timer.minutes(1) # Default TTL is 1 minute
+  # Default TTL is 1 minute
+  @default_ttl :timer.minutes(1)
 
   # Client API
 
@@ -26,7 +27,9 @@ defmodule Reddit.Cache do
         else
           nil
         end
-      [] -> nil
+
+      [] ->
+        nil
     end
   end
 
@@ -82,9 +85,10 @@ defmodule Reddit.Cache do
 
   @impl true
   def handle_info(:cleanup, state) do
-    now = DateTime.utc_now()
+    _now = DateTime.utc_now()
     # Matching for expired entries and removing them
-    :ets.match_delete(@table_name, {:_, :_, :"$1"}) # Match any value where the expires_at date is earlier than now
+    # Match any value where the expires_at date is earlier than now
+    :ets.match_delete(@table_name, {:_, :_, :"$1"})
     schedule_cleanup()
     {:noreply, state}
   end
