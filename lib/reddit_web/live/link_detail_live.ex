@@ -15,12 +15,16 @@ defmodule RedditWeb.LinkDetailLive do
         Phoenix.PubSub.subscribe(Reddit.PubSub, "comments:#{id}:new")
       end
 
+      comment_changeset = Content.change_comment(%Comment{})
+      comment_form = to_form(comment_changeset)
+
       {:ok,
        socket
        |> assign(:page_title, link.title)
        |> assign(:link, link)
        |> assign(:comments, link.comments)
-       |> assign(:comment_changeset, Content.change_comment(%Comment{}))
+       |> assign(:comment_changeset, comment_changeset)
+       |> assign(:comment_form, comment_form)
        |> assign(:username, "")
        |> assign(:parent_comment_id, nil)}
     rescue
@@ -54,6 +58,7 @@ defmodule RedditWeb.LinkDetailLive do
             {:noreply,
              socket
              |> assign(:comment_changeset, Content.change_comment(%Comment{}))
+             |> assign(:comment_form, to_form(Content.change_comment(%Comment{})))
              |> assign(:username, username)
              |> assign(:parent_comment_id, nil)}
 
@@ -77,9 +82,12 @@ defmodule RedditWeb.LinkDetailLive do
       |> Content.change_comment(comment_params)
       |> Map.put(:action, :validate)
 
+    comment_form = to_form(changeset)
+
     {:noreply,
      socket
      |> assign(:comment_changeset, changeset)
+     |> assign(:comment_form, comment_form)
      |> assign(:username, username)}
   end
 
@@ -188,10 +196,10 @@ defmodule RedditWeb.LinkDetailLive do
             <% end %>
           </h3>
 
-          <.form for={@comment_changeset} phx-submit="save_comment" phx-change="validate_comment">
+          <.form for={@comment_form} phx-submit="save_comment" phx-change="validate_comment">
             <div class="mb-4">
               <.input
-                field={@comment_changeset[:body]}
+                field={@comment_form[:body]}
                 type="textarea"
                 label="Your comment"
                 required
