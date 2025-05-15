@@ -7,6 +7,7 @@ defmodule RedditWeb.LinkListLive do
   def mount(_params, _session, socket) do
     if connected?(socket) do
       Phoenix.PubSub.subscribe(Reddit.PubSub, "links:new")
+      Phoenix.PubSub.subscribe(Reddit.PubSub, "links:deleted")
     end
 
     {:ok,
@@ -19,6 +20,27 @@ defmodule RedditWeb.LinkListLive do
   def handle_info(%{event: "new_link", payload: link_payload}, socket) do
     updated_links = [link_payload | socket.assigns.links] |> Enum.take(50)
     {:noreply, assign(socket, :links, updated_links)}
+  end
+
+  @impl true
+  def handle_info(%{event: "deleted_link", payload: %{id: deleted_id}}, socket) do
+    updated_links = Enum.reject(socket.assigns.links, fn link -> link.id == deleted_id end)
+    {:noreply, assign(socket, :links, updated_links)}
+  end
+
+  @impl true
+  def handle_event("delete_link", %{"id" => id}, socket) do
+    # Get the link from the database
+    link = Content.get_link!(String.to_integer(id))
+
+    case Content.delete_link(link) do
+      {:ok, _} ->
+        # Link will be removed from the list through the PubSub broadcast
+        {:noreply, socket |> put_flash(:info, "Link deleted successfully.")}
+
+      {:error, _} ->
+        {:noreply, socket |> put_flash(:error, "Error deleting link. Please try again.")}
+    end
   end
 
   @impl true
@@ -80,7 +102,7 @@ defmodule RedditWeb.LinkListLive do
 
                 <div
                   class="flex justify-between items-center mt-2"
-                  style="font-family: var(--font-text); font-size: 0.85rem; flex-wrap: wrap;"
+                  style="font-family: var(--font-text); font-size: 0.85rem; flex-wrap:"
                 >
                   <div style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--color-bright-purple);">
                     <a
@@ -107,6 +129,23 @@ defmodule RedditWeb.LinkListLive do
                     </span>
                     •
                     <span style="color: var(--color-baby-blue);">{link.comment_count} comments</span>
+
+                    <a
+                      href={~p"/links/#{link.id}/edit"}
+                      class="ml-2 px-2 py-0.5 rounded-full text-xs inline-flex items-center"
+                      style="background: linear-gradient(to right, var(--color-bright-blue), var(--color-teal)); color: white; font-family: var(--font-heading); font-weight: 600; box-shadow: 0 2px 6px rgba(137,207,240,0.3);"
+                    >
+                      Edit ✏️
+                    </a>
+                    <button
+                      phx-click="delete_link"
+                      phx-value-id={link.id}
+                      phx-confirm="Are you sure you want to delete this link? This cannot be undone."
+                      class="ml-2 px-2 py-0.5 rounded-full text-xs inline-flex items-center"
+                      style="background: linear-gradient(to right, var(--color-hot-pink), #FF3366); color: white; font-family: var(--font-heading); font-weight: 600; box-shadow: 0 2px 6px rgba(255,105,180,0.3);"
+                    >
+                      Delete 🗑️
+                    </button>
                   </div>
                 </div>
               </div>

@@ -22,13 +22,18 @@ defmodule RedditWeb.Router do
 
     # LiveView routes
     live "/", LinkListLive, :index
-    live "/topics/:slug", TopicLinkListLive, :index
+
+    # Add redirect for /links to the root path
+    get "/links", RedirectController, :redirect_to_root
+    live "/links", LinkListLive, :index
     live "/links/new", LinkSubmitLive, :new
+    live "/links/:id/edit", LinkEditLive, :edit
     live "/links/:id", LinkDetailLive, :show
 
     # Topic management routes
     live "/topics", TopicListLive, :index
     live "/topics/new", TopicNewLive, :new
+    live "/topics/:slug", TopicLinkListLive, :index
   end
 
   # Other scopes may use custom stacks.

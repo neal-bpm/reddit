@@ -13,6 +13,11 @@ defmodule RedditWeb.LinkDetailLive do
 
       if connected?(socket) do
         Phoenix.PubSub.subscribe(Reddit.PubSub, "comments:#{id}:new")
+
+        # Subscribe to rating changes for all comments
+        Enum.each(link.comments, fn comment ->
+          Phoenix.PubSub.subscribe(Reddit.PubSub, "comment:#{comment.id}:rated")
+        end)
       end
 
       comment_changeset = Content.change_comment(%Comment{})
@@ -26,7 +31,11 @@ defmodule RedditWeb.LinkDetailLive do
        |> assign(:comment_changeset, comment_changeset)
        |> assign(:comment_form, comment_form)
        |> assign(:username, "")
-       |> assign(:parent_comment_id, nil)}
+       |> assign(:show_all_comments, false)
+       |> assign(:parent_comment_id, nil)
+       |> assign(:user_id, nil)
+       |> assign(:show_username_modal, false)
+       |> assign(:temp_rating_data, nil)}
     rescue
       Ecto.NoResultsError ->
         {:ok,
@@ -102,8 +111,125 @@ defmodule RedditWeb.LinkDetailLive do
   end
 
   @impl true
+  def handle_event("delete_link", _params, socket) do
+    link = socket.assigns.link
+
+    case Content.delete_link(link) do
+      {:ok, _} ->
+        {:noreply,
+         socket
+         |> put_flash(:info, "Link deleted successfully.")
+         |> redirect(to: ~p"/")}
+
+      {:error, _} ->
+        {:noreply,
+         socket
+         |> put_flash(:error, "Error deleting link. Please try again.")}
+    end
+  end
+
+  @impl true
+  def handle_event("toggle_comments", _params, socket) do
+    {:noreply, assign(socket, :show_all_comments, !socket.assigns.show_all_comments)}
+  end
+
+  @impl true
+  def handle_event("rate_comment", %{"id" => comment_id, "value" => value, "username" => ""}, socket) do
+    # Username is empty, show the username modal and store temporary rating data
+    {:noreply,
+     socket
+     |> assign(:show_username_modal, true)
+     |> assign(:temp_rating_data, %{comment_id: comment_id, value: value})}
+  end
+
+  @impl true
+  def handle_event("rate_comment", %{"id" => comment_id, "value" => value, "username" => username}, socket) when byte_size(username) > 0 do
+    # Username provided, proceed with rating
+    case Accounts.find_or_create_user_by_username(%{username: username}) do
+      {:ok, user} ->
+        # Store user_id in socket for future votes
+        socket = assign(socket, :user_id, user.id)
+
+        # Parse value to integer
+        {value, _} = case Integer.parse(value) do
+          {parsed_value, _} -> {parsed_value, nil}
+          :error -> {1, nil} # Default to upvote if parsing fails
+        end
+
+        # Rate the comment
+        Content.rate_comment(user.id, comment_id, value)
+
+        # Update comments with user ratings
+        updated_comments = Content.preload_comment_scores(socket.assigns.comments, user.id)
+
+        {:noreply,
+          socket
+          |> assign(:username, username)
+          |> assign(:comments, updated_comments)}
+
+      {:error, _reason} ->
+        {:noreply, socket |> put_flash(:error, "Error with username. Please try again.")}
+    end
+  end
+
+  @impl true
+  def handle_event("submit_username", %{"username" => username}, socket) when byte_size(username) > 0 do
+    # Get the stored temporary rating data
+    %{comment_id: comment_id, value: value} = socket.assigns.temp_rating_data
+
+    # Close the modal
+    socket = assign(socket, :show_username_modal, false)
+
+    # Process the rating with the provided username
+    handle_event("rate_comment", %{"id" => comment_id, "value" => value, "username" => username}, socket)
+  end
+
+  @impl true
+  def handle_event("submit_username", _params, socket) do
+    # Invalid username submitted, just close the modal
+    {:noreply,
+     socket
+     |> assign(:show_username_modal, false)
+     |> put_flash(:error, "Please enter a valid username to vote")}
+  end
+
+  @impl true
+  def handle_event("close_username_modal", _params, socket) do
+    {:noreply, assign(socket, :show_username_modal, false)}
+  end
+
+  @impl true
   def handle_info(%{event: "new_comment", payload: comment_payload}, socket) do
+    # Subscribe to rating changes for the new comment
+    if connected?(socket) do
+      Phoenix.PubSub.subscribe(Reddit.PubSub, "comment:#{comment_payload.id}:rated")
+    end
+
+    # Make sure the comment has a score field initialized
+    comment_payload = Map.put(comment_payload, :score, 0)
+
     updated_comments = socket.assigns.comments ++ [comment_payload]
+    {:noreply, assign(socket, :comments, updated_comments)}
+  end
+
+  @impl true
+  def handle_info(%{event: "comment_rated", payload: %{id: comment_id, score: score}}, socket) do
+    # Update the score of the comment
+    updated_comments = Enum.map(socket.assigns.comments, fn comment ->
+      if comment.id == comment_id do
+        %{comment | score: score}
+      else
+        comment
+      end
+    end)
+
+    # If we have a user_id, preload the user ratings
+    updated_comments = if socket.assigns.user_id do
+      Content.preload_comment_scores(updated_comments, socket.assigns.user_id)
+    else
+      updated_comments
+    end
+
     {:noreply, assign(socket, :comments, updated_comments)}
   end
 
@@ -111,6 +237,56 @@ defmodule RedditWeb.LinkDetailLive do
   def render(assigns) do
     ~H"""
     <div class="container mx-auto px-3 py-4">
+      <!-- Username Modal -->
+      <%= if @show_username_modal do %>
+        <div class="fixed inset-0 bg-black bg-opacity-50 z-40 flex items-center justify-center">
+          <div
+            class="bg-white p-6 rounded-lg shadow-lg max-w-md w-full mx-4"
+            style="border: 3px solid var(--color-bright-purple); box-shadow: 0 5px 20px rgba(137,207,240,0.4);"
+          >
+            <h3 style="font-family: var(--font-heading); color: var(--color-bright-purple); font-size: 1.4rem; font-weight: 600; margin-bottom: 1rem;">
+              Please enter your username
+            </h3>
+
+            <p class="mb-4" style="font-family: var(--font-text); color: var(--color-text);">
+              To rate this comment, you need to provide a username.
+            </p>
+
+            <form phx-submit="submit_username">
+              <div class="mb-4">
+                <input
+                  name="username"
+                  value={@username}
+                  placeholder="Your display name"
+                  required
+                  class="w-full p-2 border rounded"
+                  style="font-family: var(--font-text); color: var(--color-text); background-color: white; border: 2px solid rgba(255,105,180,0.3); border-radius: 8px;"
+                />
+              </div>
+
+              <div class="flex justify-between">
+                <button
+                  type="button"
+                  phx-click="close_username_modal"
+                  class="px-4 py-2 rounded-full hover:scale-105 transition-transform"
+                  style="background: rgba(200,200,200,0.3); color: var(--color-text); font-family: var(--font-heading); font-weight: 600;"
+                >
+                  Cancel
+                </button>
+
+                <button
+                  type="submit"
+                  class="px-4 py-2 rounded-full hover:scale-105 transition-transform"
+                  style="background: linear-gradient(to right, var(--color-hot-pink), var(--color-bright-pink)); color: white; font-family: var(--font-heading); font-weight: 600; box-shadow: 0 3px 10px rgba(255,105,180,0.3);"
+                >
+                  Submit
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      <% end %>
+
       <!-- Link detail section -->
       <div class="mb-6">
         <div class="flex items-center mb-3">
@@ -167,7 +343,24 @@ defmodule RedditWeb.LinkDetailLive do
               <span style="color: var(--color-teal);">
                 Posted by <span style="font-weight: 600;">{@link.user.username}</span>
               </span>
-              <span style="color: var(--color-neon-orange);">{relative_time(@link.posted_at)}</span>
+              <div>
+                <span style="color: var(--color-neon-orange); margin-right: 12px;">{relative_time(@link.posted_at)}</span>
+                <a
+                  href={~p"/links/#{@link.id}/edit"}
+                  class="px-3 py-1 rounded-full hover:scale-105 transition-transform mr-2"
+                  style="background: linear-gradient(to right, var(--color-bright-blue), var(--color-teal)); color: white; font-family: var(--font-heading); font-weight: 600; box-shadow: 0 3px 10px rgba(137,207,240,0.3); font-size: 0.9rem;"
+                >
+                  Edit Link ✏️
+                </a>
+                <button
+                  phx-click="delete_link"
+                  phx-confirm="Are you sure you want to delete this link? This cannot be undone."
+                  class="px-3 py-1 rounded-full hover:scale-105 transition-transform"
+                  style="background: linear-gradient(to right, var(--color-hot-pink), #FF3366); color: white; font-family: var(--font-heading); font-weight: 600; box-shadow: 0 3px 10px rgba(255,105,180,0.3); font-size: 0.9rem;"
+                >
+                  Delete Link 🗑️
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -240,7 +433,21 @@ defmodule RedditWeb.LinkDetailLive do
               </p>
             </div>
           <% else %>
-            <%= for comment <- @comments do %>
+            <% displayed_comments = if @show_all_comments, do: @comments, else: Enum.take(@comments, -3) %>
+
+            <%= if !@show_all_comments && Enum.count(@comments) > 3 do %>
+              <div class="text-center mb-4">
+                <button
+                  phx-click="toggle_comments"
+                  class="px-4 py-2 rounded-full hover:scale-105 transition-transform"
+                  style="background: linear-gradient(to right, var(--color-baby-blue), var(--color-bright-blue)); color: white; font-family: var(--font-heading); font-weight: 600; box-shadow: 0 3px 10px rgba(137,207,240,0.3);"
+                >
+                  Show All <%= Enum.count(@comments) %> Comments
+                </button>
+              </div>
+            <% end %>
+
+            <%= for comment <- displayed_comments do %>
               <div
                 id={"comment-#{comment.id}"}
                 style="border-radius: 12px; background-color: white; padding: 15px; box-shadow: 0 3px 12px rgba(137,207,240,0.15); border: 1px solid rgba(255,105,180,0.2);"
@@ -262,7 +469,39 @@ defmodule RedditWeb.LinkDetailLive do
                     {comment.body}
                   </div>
 
-                  <div class="text-right">
+                  <div class="flex justify-between items-center">
+                    <!-- Voting buttons -->
+                    <div class="flex items-center space-x-2">
+                      <button
+                        phx-click="rate_comment"
+                        phx-value-id={comment.id}
+                        phx-value-value="1"
+                        phx-value-username={@username}
+                        class={"px-2 py-1 rounded-full hover:scale-105 transition-transform #{if comment.user_rating == 1, do: 'ring-2 ring-offset-2 ring-teal-500'}"}
+                        style={"background: linear-gradient(to right, #20B2AA, #00CED1); color: white; font-family: var(--font-heading); font-weight: 600; font-size: 0.9rem; box-shadow: 0 2px 8px rgba(32,178,170,0.3); #{if comment.user_rating == 1, do: 'transform: scale(1.05);'}"}
+                      >
+                        👍
+                      </button>
+
+                      <span
+                        class="px-3 py-1 rounded-md text-center min-w-[40px]"
+                        style={"background-color: #{if comment.score > 0, do: 'rgba(32,178,170,0.1)', else: if comment.score < 0, do: 'rgba(255,69,0,0.1)', else: 'rgba(200,200,200,0.2)'}; color: #{if comment.score > 0, do: 'var(--color-teal)', else: if comment.score < 0, do: 'var(--color-neon-orange)', else: 'var(--color-text)'}; font-weight: 600;"}
+                      >
+                        {comment.score}
+                      </span>
+
+                      <button
+                        phx-click="rate_comment"
+                        phx-value-id={comment.id}
+                        phx-value-value="-1"
+                        phx-value-username={@username}
+                        class={"px-2 py-1 rounded-full hover:scale-105 transition-transform #{if comment.user_rating == -1, do: 'ring-2 ring-offset-2 ring-red-500'}"}
+                        style={"background: linear-gradient(to right, #FF6347, #FF4500); color: white; font-family: var(--font-heading); font-weight: 600; font-size: 0.9rem; box-shadow: 0 2px 8px rgba(255,69,0,0.3); #{if comment.user_rating == -1, do: 'transform: scale(1.05);'}"}
+                      >
+                        👎
+                      </button>
+                    </div>
+
                     <button
                       phx-click="reply_to_comment"
                       phx-value-id={comment.id}
@@ -273,6 +512,18 @@ defmodule RedditWeb.LinkDetailLive do
                     </button>
                   </div>
                 </div>
+              </div>
+            <% end %>
+
+            <%= if @show_all_comments && Enum.count(@comments) > 3 do %>
+              <div class="text-center mt-4">
+                <button
+                  phx-click="toggle_comments"
+                  class="px-4 py-2 rounded-full hover:scale-105 transition-transform"
+                  style="background: linear-gradient(to right, var(--color-hot-pink), var(--color-bright-pink)); color: white; font-family: var(--font-heading); font-weight: 600; box-shadow: 0 3px 10px rgba(255,105,180,0.3);"
+                >
+                  Show Recent Comments
+                </button>
               </div>
             <% end %>
           <% end %>
